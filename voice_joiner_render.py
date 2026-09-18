@@ -111,8 +111,8 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         await ws.send_str(json.dumps({"op": 4, "d": {
                             "guild_id":   str(guild_id),
                             "channel_id": str(channel_id),
-                            "self_mute":  False,
-                            "self_deaf":  True   # sordos — no escuchan nada
+                            "self_mute":  True,   # muteados
+                            "self_deaf":  True    # sordos
                         }}))
                         entry = {"user": username, "channel_id": channel_id, "group": group}
                         _connected.append(entry)
