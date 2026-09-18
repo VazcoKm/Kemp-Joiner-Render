@@ -1,9 +1,13 @@
 # language: Python 3.10+, file: voice_joiner_render.py, target: Render + Discord Gateway v10
 # pip install aiohttp
+#
 # variables de entorno en Render:
-#   TOKENS     = token1\ntoken2\ntoken3  (uno por línea, separados con \n literal)
-#   GUILD_ID   = 1234567890
-#   CHANNEL_ID = 1234567890
+#   GUILD_ID        = id del servidor
+#   GROUP_1_TOKENS  = token1\ntoken2\ntoken3
+#   GROUP_1_CHANNEL = id del canal grupo 1
+#   GROUP_2_TOKENS  = token4\ntoken5
+#   GROUP_2_CHANNEL = id del canal grupo 2
+#   (puedes agregar GROUP_3, GROUP_4, etc.)
 
 import asyncio, json, os
 from datetime import datetime
@@ -44,10 +48,12 @@ def ts():
 def log(msg, sym="+"):
     print(f"[{ts()}] {sym} {msg}", flush=True)
 
-# ─── health endpoint para UptimeRobot ────────────────────────────────────────
+# ─── health endpoint ──────────────────────────────────────────────────────────
 
 async def health(request):
-    return web.Response(text=f"ok — {len(_connected)} connected")
+    lines = [f"{c['user']} → CH:{c['channel_id']}" for c in _connected]
+    body  = f"connected: {len(_connected)}\n" + "\n".join(lines)
+    return web.Response(text=body)
 
 async def start_health_server():
     app = web.Application()
@@ -71,8 +77,7 @@ async def heartbeat_loop(ws, interval_ms):
     except Exception:
         pass
 
-async def run_token(token, guild_id, channel_id, idx):
-    # reconexión automática si se cae
+async def run_token(token, guild_id, channel_id, idx, group):
     while True:
         session = aiohttp.ClientSession()
         hb_task = None
@@ -81,7 +86,7 @@ async def run_token(token, guild_id, channel_id, idx):
         try:
             ws = await session.ws_connect(GATEWAY, headers=WS_HEADERS, heartbeat=None)
         except Exception as e:
-            log(f"Token {idx+1} WS failed: {e} — reintentando en 10s", "✗")
+            log(f"[G{group}] Token {idx+1} WS failed: {e} — reintentando en 10s", "✗")
             await session.close()
             await asyncio.sleep(10)
             continue
@@ -102,21 +107,21 @@ async def run_token(token, guild_id, channel_id, idx):
 
                     elif op == 0 and t == "READY":
                         username = d.get("user", {}).get("username", "?")
-                        log(f"Token {idx+1} — {username} READY, joining voice...", "→")
+                        log(f"[G{group}] {username} READY, joining VC {channel_id}...", "→")
                         await ws.send_str(json.dumps({"op": 4, "d": {
                             "guild_id":   str(guild_id),
                             "channel_id": str(channel_id),
                             "self_mute":  False,
-                            "self_deaf":  False
+                            "self_deaf":  True   # sordos — no escuchan nada
                         }}))
-                        entry = {"user": username}
+                        entry = {"user": username, "channel_id": channel_id, "group": group}
                         _connected.append(entry)
-                        log(f"Token {idx+1} — {username} joined VC", "✓")
+                        log(f"[G{group}] {username} joined VC ✓", "✓")
 
                     elif op == 9:
-                        log(f"Token {idx+1} — invalid session", "✗"); break
+                        log(f"[G{group}] Token {idx+1} invalid session", "✗"); break
                     elif op == 7:
-                        log(f"Token {idx+1} — reconnect", "!"); break
+                        log(f"[G{group}] Token {idx+1} reconnect", "!"); break
 
                 elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                     break
@@ -124,44 +129,61 @@ async def run_token(token, guild_id, channel_id, idx):
         except asyncio.CancelledError:
             return
         except Exception as e:
-            log(f"Token {idx+1} — {type(e).__name__}: {e}", "✗")
+            log(f"[G{group}] Token {idx+1} {type(e).__name__}: {e}", "✗")
         finally:
             if hb_task: hb_task.cancel()
             if entry and entry in _connected:
                 _connected.remove(entry)
-                log(f"Token {idx+1} — {entry['user']} disconnected, reconectando...", "!")
+                log(f"[G{group}] {entry['user']} disconnected, reconectando...", "!")
             try: await ws.close()
             except: pass
             await session.close()
 
-        # reconexión automática
         await asyncio.sleep(5)
 
 # ─── main ────────────────────────────────────────────────────────────────────
 
 async def main():
-    # leer variables de entorno
-    raw_tokens = os.environ.get("TOKENS", "")
-    guild_id   = os.environ.get("GUILD_ID", "")
-    channel_id = os.environ.get("CHANNEL_ID", "")
+    guild_id = os.environ.get("GUILD_ID", "")
+    if not guild_id:
+        log("Falta GUILD_ID", "✗"); return
 
-    if not raw_tokens or not guild_id or not channel_id:
-        log("Faltan variables de entorno: TOKENS, GUILD_ID, CHANNEL_ID", "✗")
+    # leer grupos dinámicamente: GROUP_1, GROUP_2, GROUP_3...
+    groups = []
+    i = 1
+    while True:
+        raw_tokens = os.environ.get(f"GROUP_{i}_TOKENS", "")
+        channel_id = os.environ.get(f"GROUP_{i}_CHANNEL", "")
+        if not raw_tokens or not channel_id:
+            break
+        tokens = [t.strip() for t in raw_tokens.replace("\\n", "\n").split("\n") if t.strip()]
+        groups.append({"tokens": tokens, "channel_id": channel_id, "num": i})
+        log(f"Grupo {i}: {len(tokens)} tokens → canal {channel_id}", "+")
+        i += 1
+
+    # fallback: variables viejas TOKENS / CHANNEL_ID para compatibilidad
+    if not groups:
+        raw_tokens = os.environ.get("TOKENS", "")
+        channel_id = os.environ.get("CHANNEL_ID", "")
+        if raw_tokens and channel_id:
+            tokens = [t.strip() for t in raw_tokens.replace("\\n", "\n").split("\n") if t.strip()]
+            groups.append({"tokens": tokens, "channel_id": channel_id, "num": 1})
+            log(f"Grupo 1 (legacy): {len(tokens)} tokens → canal {channel_id}", "+")
+
+    if not groups:
+        log("No hay grupos configurados. Agrega GROUP_1_TOKENS y GROUP_1_CHANNEL", "✗")
         return
 
-    tokens = [t.strip() for t in raw_tokens.replace("\\n", "\n").split("\n") if t.strip()]
-    log(f"Cargados {len(tokens)} tokens", "+")
-    log(f"Guild: {guild_id} | Channel: {channel_id}", "→")
-
-    # arrancar health server
     await start_health_server()
 
-    # conectar todos los tokens
-    tasks = [
-        asyncio.create_task(run_token(t, guild_id, channel_id, i))
-        for i, t in enumerate(tokens)
-    ]
+    tasks = []
+    for g in groups:
+        for idx, token in enumerate(g["tokens"]):
+            tasks.append(asyncio.create_task(
+                run_token(token, guild_id, g["channel_id"], idx, g["num"])
+            ))
 
+    log(f"Total tokens: {sum(len(g['tokens']) for g in groups)} en {len(groups)} grupo(s)", "→")
     await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
