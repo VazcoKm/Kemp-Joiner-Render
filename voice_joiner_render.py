@@ -156,18 +156,20 @@ async def run_token(token, guild_id, channel_id, idx, group):
                             "Lone Echo 2",
                         ]
 
-                        # actividades normales (no VR)
+                        # actividades normales con IDs reales de Discord
                         NORMAL_GAMES = [
-                            ("Roblox",           "432980957394370572", "Playing"),
-                            ("Minecraft",        "356875570916753438", "Survival Mode"),
-                            ("Fortnite",         "432980957394370572", "Battle Royale"),
-                            ("Valorant",         "432980957394370572", "Competitive"),
-                            ("League of Legends","432980957394370572", "Ranked"),
-                            ("GTA V",            "356875570916753438", "Online"),
-                            ("CS2",              "432980957394370572", "Competitive"),
-                            ("Apex Legends",     "432980957394370572", "Ranked"),
-                            ("Among Us",         "432980957394370572", "Crewmate"),
-                            ("Rocket League",    "432980957394370572", "Ranked 3v3"),
+                            ("Roblox",           "363445589247131668",  "Playing"),
+                            ("Minecraft",        "356875570916753438",  "Survival Mode"),
+                            ("Fortnite",         "432980957394370572",  "Battle Royale"),
+                            ("Valorant",         "700136079562375258",  "Competitive"),
+                            ("League of Legends","401518684763586560",  "Ranked"),
+                            ("GTA V",            "356877880938070016",  "Online"),
+                            ("CS2",              "1091595534946574406", "Competitive"),
+                            ("Apex Legends",     "362493204919738388",  "Ranked"),
+                            ("Among Us",         "943571337180852224",  "Crewmate"),
+                            ("Rocket League",    "356877880938070016",  "Ranked 3v3"),
+                            ("Genshin Impact",   "904654571827576863",  "Exploring"),
+                            ("Overwatch 2",      "356875570916753438",  "Competitive"),
                         ]
 
                         # canciones de Spotify
