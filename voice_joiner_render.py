@@ -128,26 +128,65 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         identify["d"]["token"] = token
 
                         # ── status + actividad aleatorios ──────────────────
-                        chosen = random.choice(["idle", "dnd", "vr"])
+                        chosen = random.choice(["idle", "dnd", "vr", "game", "game", "spotify"])
 
                         VR_HEADSETS = [
                             "Meta Quest 3",
                             "Meta Quest 2",
+                            "Meta Quest Pro",
                             "Valve Index",
                             "PlayStation VR2",
                             "Apple Vision Pro",
                             "HTC Vive Pro 2",
                             "Oculus Rift S",
+                            "Pico 4",
                         ]
                         VR_GAMES = [
                             "Beat Saber",
                             "Half-Life: Alyx",
                             "VRChat",
-                            "Superhot VR",
-                            "Blade and Sorcery",
                             "Gorilla Tag",
+                            "Blade and Sorcery",
                             "Population: One",
                             "Boneworks",
+                            "Superhot VR",
+                            "Walkabout Mini Golf",
+                            "Pistol Whip",
+                            "Resident Evil 4 VR",
+                            "Lone Echo 2",
+                        ]
+
+                        # actividades normales (no VR)
+                        NORMAL_GAMES = [
+                            ("Roblox",           "432980957394370572", "Playing"),
+                            ("Minecraft",        "356875570916753438", "Survival Mode"),
+                            ("Fortnite",         "432980957394370572", "Battle Royale"),
+                            ("Valorant",         "432980957394370572", "Competitive"),
+                            ("League of Legends","432980957394370572", "Ranked"),
+                            ("GTA V",            "356875570916753438", "Online"),
+                            ("CS2",              "432980957394370572", "Competitive"),
+                            ("Apex Legends",     "432980957394370572", "Ranked"),
+                            ("Among Us",         "432980957394370572", "Crewmate"),
+                            ("Rocket League",    "432980957394370572", "Ranked 3v3"),
+                        ]
+
+                        # canciones de Spotify
+                        SPOTIFY_TRACKS = [
+                            ("Bad Bunny",       "MONACO",             "Un Verano Sin Ti"),
+                            ("Drake",           "God's Plan",         "Scorpion"),
+                            ("The Weeknd",      "Blinding Lights",    "After Hours"),
+                            ("Travis Scott",    "SICKO MODE",         "ASTROWORLD"),
+                            ("Peso Pluma",      "BZRP Music Sessions #55", "GÉNESIS"),
+                            ("Feid",            "LUNA",               "INTER SHIBUYA - LA MAFIA"),
+                            ("Tyler The Creator","NOID",              "CHROMAKOPIA"),
+                            ("SZA",             "Kill Bill",          "SOS"),
+                            ("Kendrick Lamar",  "Not Like Us",        "GNX"),
+                            ("Karol G",         "QLONA",              "MAÑANA SERÁ BONITO"),
+                            ("Myke Towers",     "LALA",               "LYKE MIKE"),
+                            ("J Balvin",        "Con Altura",         "Oasis"),
+                            ("Quevedo",         "Columbia",           "Donde Quiero Estar"),
+                            ("Ozuna",           "Taki Taki",          "NIBIRU"),
+                            ("Arcangel",        "La Jumpa",           "Sr. Santos"),
                         ]
 
                         if chosen == "vr":
@@ -175,6 +214,55 @@ async def run_token(token, guild_id, channel_id, idx, group):
                                 }]
                             }
                             status_label = f"VR ({headset} · {vr_game})"
+                        elif chosen == "game":
+                            game_name, app_id, game_state = random.choice(NORMAL_GAMES)
+                            now_ms = int(__import__("time").time() * 1000)
+                            identify["d"]["presence"] = {
+                                "status": "online",
+                                "since":  0,
+                                "afk":    False,
+                                "activities": [{
+                                    "name":           game_name,
+                                    "type":           0,
+                                    "flags":          1,
+                                    "state":          game_state,
+                                    "application_id": app_id,
+                                    "timestamps":     {"start": now_ms}
+                                }]
+                            }
+                            status_label = f"Playing {game_name}"
+
+                        elif chosen == "spotify":
+                            artist, song, album = random.choice(SPOTIFY_TRACKS)
+                            now_ms   = int(__import__("time").time() * 1000)
+                            duration = random.randint(150000, 240000)  # 2.5-4 min
+                            start_ms = now_ms - random.randint(10000, duration - 10000)
+                            identify["d"]["presence"] = {
+                                "status": random.choice(["online", "idle", "dnd"]),
+                                "since":  0,
+                                "afk":    False,
+                                "activities": [{
+                                    "name":       "Spotify",
+                                    "type":       2,   # type 2 = Listening
+                                    "flags":      48,
+                                    "state":      artist,
+                                    "details":    song,
+                                    "assets": {
+                                        "large_image": "spotify:ab67616d00001e02",
+                                        "large_text":  album,
+                                        "small_image": "spotify:ab6761610000f178",
+                                        "small_text":  "Spotify"
+                                    },
+                                    "timestamps": {
+                                        "start": start_ms,
+                                        "end":   start_ms + duration
+                                    },
+                                    "sync_id": f"{random.randint(10**19, 10**20 - 1)}",
+                                    "party": {"id": f"spotify:{random.randint(10**15, 10**16 - 1)}"}
+                                }]
+                            }
+                            status_label = f"Spotify: {artist} — {song}"
+
                         else:
                             identify["d"]["presence"] = {
                                 "status":     chosen,
