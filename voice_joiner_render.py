@@ -156,20 +156,22 @@ async def run_token(token, guild_id, channel_id, idx, group):
                             "Lone Echo 2",
                         ]
 
-                        # actividades normales con IDs reales de Discord
+                        # actividades normales — sin application_id para evitar badge incorrecto
                         NORMAL_GAMES = [
-                            ("Roblox",           "363445589247131668",  "Playing"),
-                            ("Minecraft",        "356875570916753438",  "Survival Mode"),
-                            ("Fortnite",         "432980957394370572",  "Battle Royale"),
-                            ("Valorant",         "700136079562375258",  "Competitive"),
-                            ("League of Legends","401518684763586560",  "Ranked"),
-                            ("GTA V",            "356877880938070016",  "Online"),
-                            ("CS2",              "1091595534946574406", "Competitive"),
-                            ("Apex Legends",     "362493204919738388",  "Ranked"),
-                            ("Among Us",         "943571337180852224",  "Crewmate"),
-                            ("Rocket League",    "356877880938070016",  "Ranked 3v3"),
-                            ("Genshin Impact",   "904654571827576863",  "Exploring"),
-                            ("Overwatch 2",      "356875570916753438",  "Competitive"),
+                            ("Roblox",           "Bloxburg"),
+                            ("Minecraft",        "Survival Mode"),
+                            ("Fortnite",         "Battle Royale"),
+                            ("Valorant",         "Competitive"),
+                            ("League of Legends","Ranked"),
+                            ("GTA V",            "Online"),
+                            ("CS2",              "Competitive"),
+                            ("Apex Legends",     "Ranked"),
+                            ("Among Us",         "Crewmate"),
+                            ("Rocket League",    "Ranked 3v3"),
+                            ("Genshin Impact",   "Exploring Teyvat"),
+                            ("Overwatch 2",      "Competitive"),
+                            ("Call of Duty: Warzone", "Battle Royale"),
+                            ("FIFA 25",          "Ultimate Team"),
                         ]
 
                         # canciones de Spotify
@@ -212,24 +214,22 @@ async def run_token(token, guild_id, channel_id, idx, group):
                                     "details":    f"Playing on {headset}",
                                     "state":      "In VR",
                                     "timestamps": {"start": now_ms},
-                                    "application_id": "432980957394370572",
                                 }]
                             }
                             status_label = f"VR ({headset} · {vr_game})"
                         elif chosen == "game":
-                            game_name, app_id, game_state = random.choice(NORMAL_GAMES)
+                            game_name, game_state = random.choice(NORMAL_GAMES)
                             now_ms = int(__import__("time").time() * 1000)
                             identify["d"]["presence"] = {
                                 "status": "online",
                                 "since":  0,
                                 "afk":    False,
                                 "activities": [{
-                                    "name":           game_name,
-                                    "type":           0,
-                                    "flags":          1,
-                                    "state":          game_state,
-                                    "application_id": app_id,
-                                    "timestamps":     {"start": now_ms}
+                                    "name":       game_name,
+                                    "type":       0,
+                                    "flags":      0,
+                                    "state":      game_state,
+                                    "timestamps": {"start": now_ms}
                                 }]
                             }
                             status_label = f"Playing {game_name}"
