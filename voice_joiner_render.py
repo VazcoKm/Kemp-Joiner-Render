@@ -9,7 +9,7 @@
 #   GROUP_2_CHANNEL = id del canal grupo 2
 #   (puedes agregar GROUP_3, GROUP_4, etc.)
 
-import asyncio, json, os
+import asyncio, json, os, random
 from datetime import datetime
 from aiohttp import web
 import aiohttp
@@ -126,12 +126,64 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         hb_task = asyncio.create_task(heartbeat_loop(ws, d["heartbeat_interval"]))
                         identify = json.loads(json.dumps(IDENTIFY_TEMPLATE))
                         identify["d"]["token"] = token
+
+                        # ── status + actividad aleatorios ──────────────────
+                        chosen = random.choice(["idle", "dnd", "vr"])
+
+                        VR_HEADSETS = [
+                            "Meta Quest 3",
+                            "Meta Quest 2",
+                            "Valve Index",
+                            "PlayStation VR2",
+                            "Apple Vision Pro",
+                            "HTC Vive Pro 2",
+                            "Oculus Rift S",
+                        ]
+                        VR_GAMES = [
+                            "Beat Saber",
+                            "Half-Life: Alyx",
+                            "VRChat",
+                            "Superhot VR",
+                            "Blade and Sorcery",
+                            "Gorilla Tag",
+                            "Population: One",
+                            "Boneworks",
+                        ]
+
+                        if chosen == "vr":
+                            headset  = random.choice(VR_HEADSETS)
+                            vr_game  = random.choice(VR_GAMES)
+                            now_ms   = int(__import__("time").time() * 1000)
+                            identify["d"]["presence"] = {
+                                "status": "online",
+                                "since":  0,
+                                "afk":    False,
+                                "activities": [{
+                                    "name":  vr_game,
+                                    "type":  0,
+                                    "flags": 0,
+                                    "details":  f"In VR — {headset}",
+                                    "state":    "Playing",
+                                    "timestamps": {"start": now_ms},
+                                    "application_id": "438122941302046730",  # discord game SDK
+                                    "metadata": {}
+                                }]
+                            }
+                            status_label = f"VR ({headset} · {vr_game})"
+                        else:
+                            identify["d"]["presence"] = {
+                                "status":     chosen,
+                                "since":      int(__import__("time").time() * 1000) if chosen == "idle" else 0,
+                                "afk":        chosen == "idle",
+                                "activities": []
+                            }
+                            status_label = chosen
                         await ws.send_str(json.dumps(identify))
 
                     elif op == 0 and t == "READY":
                         username = d.get("user", {}).get("username", "?")
                         user_id  = d.get("user", {}).get("id", "")
-                        log(f"[G{group}] {username} READY, joining VC {channel_id}...", "→")
+                        log(f"[G{group}] {username} READY, joining VC {channel_id} [{status_label}]...", "→")
                         await ws.send_str(json.dumps({"op": 4, "d": {
                             "guild_id":   str(guild_id),
                             "channel_id": str(channel_id),
@@ -141,7 +193,7 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         entry = {"user": username, "user_id": user_id, "channel_id": channel_id, "group": group}
                         _connected.append(entry)
                         in_vc = True
-                        log(f"[G{group}] {username} joined VC ✓", "✓")
+                        log(f"[G{group}] {username} joined VC ✓ [{status_label}]", "✓")
 
                     elif op == 0 and t == "VOICE_STATE_UPDATE":
                         # detectar si nos sacaron del VC
