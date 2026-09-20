@@ -82,14 +82,37 @@ async def run_token(token, guild_id, channel_id, idx, group):
         session = aiohttp.ClientSession()
         hb_task = None
         entry   = None
+        in_vc   = False          # True cuando está confirmado en el canal
+        kicked  = asyncio.Event()  # se dispara cuando alguien lo saca
 
         try:
             ws = await session.ws_connect(GATEWAY, headers=WS_HEADERS, heartbeat=None)
         except Exception as e:
-            log(f"[G{group}] Token {idx+1} WS failed: {e} — reintentando en 10s", "✗")
+            log(f"[G{group}] Token {idx+1} WS failed: {e} — reintentando en 5s", "✗")
             await session.close()
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
             continue
+
+        async def rejoin_watch():
+            """Espera a que lo saquen del VC y lo mete de vuelta al instante."""
+            while True:
+                await kicked.wait()
+                kicked.clear()
+                if ws.closed: break
+                log(f"[G{group}] {entry['user'] if entry else idx+1} — sacado del VC, reingresando...", "!")
+                try:
+                    await ws.send_str(json.dumps({"op": 4, "d": {
+                        "guild_id":   str(guild_id),
+                        "channel_id": str(channel_id),
+                        "self_mute":  True,
+                        "self_deaf":  True
+                    }}))
+                    log(f"[G{group}] {entry['user'] if entry else idx+1} — reingresó al VC ✓", "✓")
+                except Exception as e:
+                    log(f"[G{group}] Token {idx+1} rejoin error: {e}", "✗")
+                    break
+
+        rejoin_task = asyncio.create_task(rejoin_watch())
 
         try:
             async for msg in ws:
@@ -107,16 +130,34 @@ async def run_token(token, guild_id, channel_id, idx, group):
 
                     elif op == 0 and t == "READY":
                         username = d.get("user", {}).get("username", "?")
+                        user_id  = d.get("user", {}).get("id", "")
                         log(f"[G{group}] {username} READY, joining VC {channel_id}...", "→")
                         await ws.send_str(json.dumps({"op": 4, "d": {
                             "guild_id":   str(guild_id),
                             "channel_id": str(channel_id),
-                            "self_mute":  True,   # muteados
-                            "self_deaf":  True    # sordos
+                            "self_mute":  True,
+                            "self_deaf":  True
                         }}))
-                        entry = {"user": username, "channel_id": channel_id, "group": group}
+                        entry = {"user": username, "user_id": user_id, "channel_id": channel_id, "group": group}
                         _connected.append(entry)
+                        in_vc = True
                         log(f"[G{group}] {username} joined VC ✓", "✓")
+
+                    elif op == 0 and t == "VOICE_STATE_UPDATE":
+                        # detectar si nos sacaron del VC
+                        uid     = d.get("user_id", "")
+                        ch      = d.get("channel_id")
+                        my_uid  = entry["user_id"] if entry else ""
+
+                        if uid == my_uid and in_vc:
+                            if ch is None:
+                                # canal_id = None → alguien los sacó
+                                log(f"[G{group}] {entry['user']} — detectado fuera del VC", "!")
+                                kicked.set()
+                            elif str(ch) != str(channel_id):
+                                # los movieron a otro canal — volver al original
+                                log(f"[G{group}] {entry['user']} — movido a otro canal, regresando...", "!")
+                                kicked.set()
 
                     elif op == 9:
                         log(f"[G{group}] Token {idx+1} invalid session", "✗"); break
@@ -127,19 +168,21 @@ async def run_token(token, guild_id, channel_id, idx, group):
                     break
 
         except asyncio.CancelledError:
+            rejoin_task.cancel()
             return
         except Exception as e:
             log(f"[G{group}] Token {idx+1} {type(e).__name__}: {e}", "✗")
         finally:
+            rejoin_task.cancel()
             if hb_task: hb_task.cancel()
             if entry and entry in _connected:
                 _connected.remove(entry)
-                log(f"[G{group}] {entry['user']} disconnected, reconectando...", "!")
+                log(f"[G{group}] {entry['user']} disconnected, reconectando en 1s...", "!")
             try: await ws.close()
             except: pass
             await session.close()
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)   # reconexión rápida al gateway
 
 # ─── main ────────────────────────────────────────────────────────────────────
 
