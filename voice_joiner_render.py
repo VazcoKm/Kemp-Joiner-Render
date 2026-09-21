@@ -85,22 +85,16 @@ BUILD_NUMBERS = [330490, 330491, 330492, 330493, 330494, 330495,
 CAPABILITIES  = [16381, 16383, 16389, 16397, 16413, 16445, 16509]
 
 async def run_token(token, guild_id, channel_id, idx, group):
-    # delay escalonado — evita que todos entren al mismo tiempo
-    await asyncio.sleep(random.uniform(2, 8) * idx)
+    # delay escalonado pequeño — max 3s entre tokens
+    await asyncio.sleep(random.uniform(0.5, 3) * (idx % 5))
 
-    # cada token tiene su propio ciclo independiente:
-    # conecta entre 2-5 horas, descansa 45-90 minutos, repite
-    session_duration = random.uniform(7200, 18000)   # 2-5 horas
-    rest_duration    = random.uniform(2700, 5400)     # 45-90 minutos
-
-    # offset inicial — para que no descansen todos a la misma hora
-    # token 0 descansa a las 2h, token 1 a las 2.5h, token 2 a las 3h, etc.
-    initial_offset = random.uniform(0, session_duration * 0.8)
-    await asyncio.sleep(initial_offset)
+    # cada token tiene su propio ciclo independiente
+    session_duration = random.uniform(7200, 18000)
+    rest_duration    = random.uniform(2700, 5400)
 
     while True:
         # ── sesión activa ────────────────────────────────────────────
-        log(f"[G{group}] Token {idx+1} iniciando sesión ({session_duration/3600:.1f}h)...", "+")
+        log(f"[G{group}] Token {idx+1} iniciando sesión...", "+")
         session = aiohttp.ClientSession()
         hb_task = None
         entry   = None
@@ -148,6 +142,9 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         hb_task = asyncio.create_task(heartbeat_loop(ws, d["heartbeat_interval"]))
                         identify = json.loads(json.dumps(IDENTIFY_TEMPLATE))
                         identify["d"]["token"] = token
+                        identify["d"]["capabilities"] = CAPABILITIES[idx % len(CAPABILITIES)]
+                        identify["d"]["properties"]["client_build_number"] = BUILD_NUMBERS[idx % len(BUILD_NUMBERS)]
+                        log(f"[G{group}] Token {idx+1} identificando...", "~")
 
                         # ── status + actividad aleatorios ──────────────────
                         chosen = random.choice(["vr", "vr", "vr", "idle", "dnd"])
@@ -268,10 +265,13 @@ async def run_token(token, guild_id, channel_id, idx, group):
             await session.close()
 
         # ── descanso ────────────────────────────────────────────────
-        rest_duration = random.uniform(2700, 5400)   # 45-90 min
-        session_duration = random.uniform(7200, 18000)  # nueva sesión 2-5h
-        log(f"[G{group}] Token {idx+1} descansando {rest_duration/60:.0f} min...", "!")
-        await asyncio.sleep(rest_duration)
+        # offset único por token para que no descansen todos juntos
+        rest_base   = random.uniform(2700, 5400)     # 45-90 min base
+        rest_offset = idx * random.uniform(300, 900) # +5-15 min por cada token
+        rest_total  = rest_base + rest_offset
+        session_duration = random.uniform(7200, 18000)
+        log(f"[G{group}] Token {idx+1} descansando {rest_total/60:.0f} min...", "!")
+        await asyncio.sleep(rest_total)
         log(f"[G{group}] Token {idx+1} volviendo al VC...", "+")
         await asyncio.sleep(random.uniform(1, 5))   # pequeño delay antes de reconectar
 
