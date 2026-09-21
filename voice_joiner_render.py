@@ -164,7 +164,6 @@ async def run_token(token, guild_id, channel_id, idx, group):
                             status_label = f"VR ({headset})"
                         elif chosen == "gta":
                             now_ms = int(__import__("time").time() * 1000)
-                            # GTA V via Steam — properties de desktop Steam
                             identify["d"]["properties"]["os"]      = "Windows"
                             identify["d"]["properties"]["browser"] = "Discord Client"
                             identify["d"]["properties"]["device"]  = ""
@@ -175,12 +174,16 @@ async def run_token(token, guild_id, channel_id, idx, group):
                                 "activities": [{
                                     "name":           "Grand Theft Auto V",
                                     "type":           0,
-                                    "application_id": "356877880938070016",
                                     "flags":          0,
-                                    "timestamps":     {"start": now_ms - random.randint(60000, 7200000)}
+                                    "application_id": "1551455456252137552",
+                                    "assets": {
+                                        "large_image": "gta_logo",
+                                        "large_text":  "Grand Theft Auto V"
+                                    },
+                                    "timestamps": {"start": now_ms - random.randint(60000, 7200000)}
                                 }]
                             }
-                            status_label = "GTA V (Steam)"
+                            status_label = "GTA V"
 
                         else:
                             identify["d"]["properties"]["os"]      = "Windows"
