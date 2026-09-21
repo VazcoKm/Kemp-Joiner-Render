@@ -9,7 +9,7 @@
 #   GROUP_2_CHANNEL = id del canal grupo 2
 #   (puedes agregar GROUP_3, GROUP_4, etc.)
 
-import asyncio, json, os, random
+import asyncio, json, os, random, time
 from datetime import datetime
 from aiohttp import web
 import aiohttp
@@ -69,7 +69,9 @@ async def start_health_server():
 async def heartbeat_loop(ws, interval_ms):
     try:
         while True:
-            await asyncio.sleep(interval_ms / 1000)
+            # jitter ±500ms para no parecer bot
+            jitter = random.uniform(-0.5, 0.5)
+            await asyncio.sleep((interval_ms / 1000) + jitter)
             if ws.closed: break
             await ws.send_str(json.dumps({"op": 1, "d": None}))
     except asyncio.CancelledError:
@@ -77,8 +79,28 @@ async def heartbeat_loop(ws, interval_ms):
     except Exception:
         pass
 
+# builds cercanos al real para variar por token
+BUILD_NUMBERS = [330490, 330491, 330492, 330493, 330494, 330495,
+                 330500, 330501, 330502, 330503, 330504, 330505, 330510]
+CAPABILITIES  = [16381, 16383, 16389, 16397, 16413, 16445, 16509]
+
 async def run_token(token, guild_id, channel_id, idx, group):
+    # delay escalonado — evita que todos entren al mismo tiempo
+    await asyncio.sleep(random.uniform(2, 8) * idx)
+
+    # cada token tiene su propio ciclo independiente:
+    # conecta entre 2-5 horas, descansa 45-90 minutos, repite
+    session_duration = random.uniform(7200, 18000)   # 2-5 horas
+    rest_duration    = random.uniform(2700, 5400)     # 45-90 minutos
+
+    # offset inicial — para que no descansen todos a la misma hora
+    # token 0 descansa a las 2h, token 1 a las 2.5h, token 2 a las 3h, etc.
+    initial_offset = random.uniform(0, session_duration * 0.8)
+    await asyncio.sleep(initial_offset)
+
     while True:
+        # ── sesión activa ────────────────────────────────────────────
+        log(f"[G{group}] Token {idx+1} iniciando sesión ({session_duration/3600:.1f}h)...", "+")
         session = aiohttp.ClientSession()
         hb_task = None
         entry   = None
@@ -128,13 +150,7 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         identify["d"]["token"] = token
 
                         # ── status + actividad aleatorios ──────────────────
-                        # aleatorio entre todos los tokens sin importar grupo
-                        # pesos: vr=8/13, gta=4/13, idle/dnd=1/13
-                        chosen = random.choice([
-                            "vr",  "vr",  "vr",  "vr",  "vr",  "vr",  "vr",  "vr",
-                            "gta", "gta", "gta", "gta",
-                            random.choice(["idle", "dnd"])
-                        ])
+                        chosen = random.choice(["vr", "vr", "vr", "idle", "dnd"])
 
                         VR_HEADSETS = [
                             "Meta Quest 3",
@@ -162,29 +178,6 @@ async def run_token(token, guild_id, channel_id, idx, group):
                                 "activities": []
                             }
                             status_label = f"VR ({headset})"
-                        elif chosen == "gta":
-                            now_ms = int(__import__("time").time() * 1000)
-                            identify["d"]["properties"]["os"]      = "Windows"
-                            identify["d"]["properties"]["browser"] = "Discord Client"
-                            identify["d"]["properties"]["device"]  = ""
-                            identify["d"]["presence"] = {
-                                "status":     "online",
-                                "since":      0,
-                                "afk":        False,
-                                "activities": [{
-                                    "name":           "Grand Theft Auto V",
-                                    "type":           0,
-                                    "flags":          0,
-                                    "application_id": "1551455456252137552",
-                                    "assets": {
-                                        "large_image": "gta_logo",
-                                        "large_text":  "Grand Theft Auto V"
-                                    },
-                                    "timestamps": {"start": now_ms - random.randint(60000, 7200000)}
-                                }]
-                            }
-                            status_label = "GTA V"
-
                         else:
                             identify["d"]["properties"]["os"]      = "Windows"
                             identify["d"]["properties"]["browser"] = "Discord Client"
@@ -212,6 +205,28 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         _connected.append(entry)
                         in_vc = True
                         log(f"[G{group}] {username} joined VC ✓ [{status_label}]", "✓")
+
+                        # cambio de status ocasional cada 1-3 horas — permanece en VC
+                        async def status_rotation(ws_ref, current_status):
+                            await asyncio.sleep(random.uniform(3600, 10800))
+                            while True:
+                                if ws_ref.closed: break
+                                new_st = random.choice(["idle", "dnd", "online"])
+                                try:
+                                    await ws_ref.send_str(json.dumps({
+                                        "op": 3,
+                                        "d": {
+                                            "since":      int(time.time() * 1000) if new_st == "idle" else 0,
+                                            "activities": [],
+                                            "status":     new_st,
+                                            "afk":        new_st == "idle"
+                                        }
+                                    }))
+                                    log(f"[G{group}] {username} status → {new_st}", "→")
+                                except: break
+                                await asyncio.sleep(random.uniform(3600, 10800))
+
+                        asyncio.create_task(status_rotation(ws, chosen))
 
                     elif op == 0 and t == "VOICE_STATE_UPDATE":
                         # detectar si nos sacaron del VC
@@ -252,7 +267,13 @@ async def run_token(token, guild_id, channel_id, idx, group):
             except: pass
             await session.close()
 
-        await asyncio.sleep(1)   # reconexión rápida al gateway
+        # ── descanso ────────────────────────────────────────────────
+        rest_duration = random.uniform(2700, 5400)   # 45-90 min
+        session_duration = random.uniform(7200, 18000)  # nueva sesión 2-5h
+        log(f"[G{group}] Token {idx+1} descansando {rest_duration/60:.0f} min...", "!")
+        await asyncio.sleep(rest_duration)
+        log(f"[G{group}] Token {idx+1} volviendo al VC...", "+")
+        await asyncio.sleep(random.uniform(1, 5))   # pequeño delay antes de reconectar
 
 # ─── main ────────────────────────────────────────────────────────────────────
 
