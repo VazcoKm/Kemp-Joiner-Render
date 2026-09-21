@@ -128,7 +128,13 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         identify["d"]["token"] = token
 
                         # ── status + actividad aleatorios ──────────────────
-                        chosen = random.choice(["idle", "dnd", "vr"])
+                        # aleatorio entre todos los tokens sin importar grupo
+                        # pesos: vr=8/13, gta=4/13, idle/dnd=1/13
+                        chosen = random.choice([
+                            "vr",  "vr",  "vr",  "vr",  "vr",  "vr",  "vr",  "vr",
+                            "gta", "gta", "gta", "gta",
+                            random.choice(["idle", "dnd"])
+                        ])
 
                         VR_HEADSETS = [
                             "Meta Quest 3",
@@ -156,7 +162,30 @@ async def run_token(token, guild_id, channel_id, idx, group):
                                 "activities": []
                             }
                             status_label = f"VR ({headset})"
+                        elif chosen == "gta":
+                            now_ms = int(__import__("time").time() * 1000)
+                            # GTA V via Steam — properties de desktop Steam
+                            identify["d"]["properties"]["os"]      = "Windows"
+                            identify["d"]["properties"]["browser"] = "Discord Client"
+                            identify["d"]["properties"]["device"]  = ""
+                            identify["d"]["presence"] = {
+                                "status":     "online",
+                                "since":      0,
+                                "afk":        False,
+                                "activities": [{
+                                    "name":           "Grand Theft Auto V",
+                                    "type":           0,
+                                    "application_id": "356877880938070016",
+                                    "flags":          0,
+                                    "timestamps":     {"start": now_ms - random.randint(60000, 7200000)}
+                                }]
+                            }
+                            status_label = "GTA V (Steam)"
+
                         else:
+                            identify["d"]["properties"]["os"]      = "Windows"
+                            identify["d"]["properties"]["browser"] = "Discord Client"
+                            identify["d"]["properties"]["device"]  = ""
                             identify["d"]["presence"] = {
                                 "status":     chosen,
                                 "since":      int(__import__("time").time() * 1000) if chosen == "idle" else 0,
