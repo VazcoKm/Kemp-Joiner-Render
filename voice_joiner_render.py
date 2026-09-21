@@ -143,9 +143,9 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         ]
                         if chosen == "vr":
                             headset = random.choice(VR_HEADSETS)
-                            # solo plataforma VR — sin actividad de juego
-                            identify["d"]["properties"]["os"]              = "VR"
-                            identify["d"]["properties"]["browser"]         = "Discord Client"
+                            # payload exacto del PlatformSpoof plugin (k1ng0p/PlatformSpoof)
+                            identify["d"]["properties"]["os"]              = "Android"
+                            identify["d"]["properties"]["browser"]         = "Discord VR"
                             identify["d"]["properties"]["device"]          = headset
                             identify["d"]["properties"]["browser_version"] = ""
                             identify["d"]["properties"]["os_version"]      = ""
