@@ -141,45 +141,21 @@ async def run_token(token, guild_id, channel_id, idx, group):
                             "Oculus Rift S",
                             "Pico 4",
                         ]
-                        VR_GAMES = [
-                            "Beat Saber",
-                            "Half-Life: Alyx",
-                            "VRChat",
-                            "Gorilla Tag",
-                            "Blade and Sorcery",
-                            "Population: One",
-                            "Boneworks",
-                            "Superhot VR",
-                            "Walkabout Mini Golf",
-                            "Pistol Whip",
-                            "Resident Evil 4 VR",
-                            "Lone Echo 2",
-                        ]
-
                         if chosen == "vr":
                             headset = random.choice(VR_HEADSETS)
-                            vr_game = random.choice(VR_GAMES)
-                            now_ms  = int(__import__("time").time() * 1000)
-                            # el ícono VR viene de identificarse con platform VR
-                            identify["d"]["properties"]["os"]             = "VR"
-                            identify["d"]["properties"]["browser"]        = "Discord Client"
-                            identify["d"]["properties"]["device"]         = headset
+                            # solo plataforma VR — sin actividad de juego
+                            identify["d"]["properties"]["os"]              = "VR"
+                            identify["d"]["properties"]["browser"]         = "Discord Client"
+                            identify["d"]["properties"]["device"]          = headset
                             identify["d"]["properties"]["browser_version"] = ""
-                            identify["d"]["properties"]["os_version"]     = ""
+                            identify["d"]["properties"]["os_version"]      = ""
                             identify["d"]["presence"] = {
-                                "status": "online",
-                                "since":  0,
-                                "afk":    False,
-                                "activities": [{
-                                    "name":       vr_game,
-                                    "type":       0,
-                                    "flags":      1,
-                                    "details":    f"Playing on {headset}",
-                                    "state":      "In VR",
-                                    "timestamps": {"start": now_ms},
-                                }]
+                                "status":     "online",
+                                "since":      0,
+                                "afk":        False,
+                                "activities": []
                             }
-                            status_label = f"VR ({headset} · {vr_game})"
+                            status_label = f"VR ({headset})"
                         else:
                             identify["d"]["presence"] = {
                                 "status":     chosen,
