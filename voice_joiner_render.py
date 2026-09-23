@@ -95,9 +95,10 @@ async def run_token(token, guild_id, channel_id, idx, group):
     while True:
         # ── sesión activa ────────────────────────────────────────────
         log(f"[G{group}] Token {idx+1} iniciando sesión...", "+")
-        session = aiohttp.ClientSession()
-        hb_task = None
-        entry   = None
+        session      = aiohttp.ClientSession()
+        hb_task      = None
+        entry        = None
+        session_start = time.time()  # resetear al inicio de cada sesión
         in_vc   = False          # True cuando está confirmado en el canal
         kicked  = asyncio.Event()  # se dispara cuando alguien lo saca
 
@@ -201,7 +202,6 @@ async def run_token(token, guild_id, channel_id, idx, group):
                         entry = {"user": username, "user_id": user_id, "channel_id": channel_id, "group": group}
                         _connected.append(entry)
                         in_vc = True
-                        session_start = time.time()
                         log(f"[G{group}] {username} joined VC ✓ [{status_label}]", "✓")
 
                         # cambio de status ocasional cada 1-3 horas — permanece en VC
@@ -259,29 +259,24 @@ async def run_token(token, guild_id, channel_id, idx, group):
             rejoin_task.cancel()
             if hb_task: hb_task.cancel()
             if entry and entry in _connected:
-                session_end = time.time()
-                tiempo_activo = session_end - session_start if 'session_start' in dir() else 0
                 _connected.remove(entry)
-                log(f"[G{group}] {entry['user']} disconnected ({tiempo_activo/60:.0f} min activo)", "!")
             try: await ws.close()
             except: pass
             await session.close()
 
         # ── descanso solo si estuvo activo más de 2 horas ────────────
-        try:
-            tiempo_activo
-        except NameError:
-            tiempo_activo = 0
+        tiempo_activo = time.time() - session_start
 
-        if tiempo_activo >= 7200:   # 2 horas mínimo antes de descansar
-            rest_base   = random.uniform(2700, 5400)
-            rest_offset = (idx % 5) * random.uniform(300, 600)
+        if tiempo_activo >= 7200:   # 2+ horas → descansar
+            rest_base   = random.uniform(2700, 5400)    # 45-90 min
+            rest_offset = (idx % 5) * random.uniform(300, 600)  # offset por token
             rest_total  = rest_base + rest_offset
-            log(f"[G{group}] Token {idx+1} descansando {rest_total/60:.0f} min...", "!")
+            log(f"[G{group}] Token {idx+1} — {entry['user'] if entry else ''} descansando {rest_total/60:.0f} min...", "!")
             await asyncio.sleep(rest_total)
             log(f"[G{group}] Token {idx+1} volviendo al VC...", "+")
+            await asyncio.sleep(random.uniform(1, 5))
         else:
-            # reconexión rápida — no fue sesión larga
+            # sesión corta — reconexión rápida sin descanso
             await asyncio.sleep(random.uniform(1, 5))
 
 # ─── main ────────────────────────────────────────────────────────────────────
