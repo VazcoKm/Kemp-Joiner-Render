@@ -1,4 +1,4 @@
-#  Discord Voice Token Joiner
+#  Kemp Voice Token Joiner
 
 Mantiene múltiples cuentas de Discord conectadas en canales de voz de forma continua.  
 Corre en **Render** (free tier) y se mantiene vivo con **UptimeRobot**.
