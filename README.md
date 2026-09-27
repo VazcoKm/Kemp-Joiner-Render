@@ -145,20 +145,6 @@ Username3 → CH:111222333444555666
 Si antes usabas `TOKENS` y `CHANNEL_ID` (sin grupos), el script las sigue leyendo como `GROUP_1` automáticamente. No necesitas cambiar nada.
 
 ---
-
-## Estructura del repo
-
-```
-📁 tu-repo/
-├── voice_joiner_render.py   # script principal
-├── requirements.txt         # aiohttp
-└── README.md                # este archivo
-```
-
----
-
-## Notas
-
 - Los tokens deben ser **user tokens** (los de cuentas normales, no bots de la Developer Portal)
 - Para obtener tu `GUILD_ID` y `CHANNEL_ID`: activa **Modo Desarrollador** en Discord (Ajustes → Avanzado) y haz clic derecho en el servidor/canal → *Copiar ID*
 - El servicio escucha en el puerto que Render asigne vía la variable `PORT` (automático)
